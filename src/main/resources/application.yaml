@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: notification-service
+
+  # ═══════════════════════════════════════════════════════════
+  #  Kafka : contrairement au booking-service, Kafka N'EST PAS
+  #  exclu ici, c'est la raison d'être de ce service. Sans broker
+  #  disponible en local, l'app démarre quand même (le consumer
+  #  retente la connexion en arrière-plan, ça n'empêche pas le
+  #  démarrage), mais rien ne sera évidemment consommé tant que
+  #  Kafka n'est pas up.
+  # ═══════════════════════════════════════════════════════════
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  # ═══════════════════════════════════════════════════════════
+  #  Mail : non utilisé pour l'instant, EmailNotificationSender est
+  #  un stub qui logue au lieu d'envoyer un vrai email (cf. README).
+  #  Config laissée en placeholder pour brancher un vrai provider
+  #  SMTP plus tard sans tout réécrire.
+  # ═══════════════════════════════════════════════════════════
+  mail:
+    host: localhost
+    port: 1025
+
+server:
+  port: 8084
+
+# ═══════════════════════════════════════════════════════════
+#  URL du booking-service, consulté pour résoudre la liste
+#  d'attente d'un avocat (GET /api/waitlist/{lawyerId}) suite à
+#  un événement slot.released.
+#  En conteneur Docker, surchargé par BOOKING_SERVICE_BASE_URL.
+# ═══════════════════════════════════════════════════════════
+booking-service:
+  base-url: ${BOOKING_SERVICE_BASE_URL:http://localhost:8083}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+  show-actuator: false
