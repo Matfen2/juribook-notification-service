@@ -6,9 +6,8 @@ spring:
   #  Kafka : contrairement au booking-service, Kafka N'EST PAS
   #  exclu ici, c'est la raison d'être de ce service. Sans broker
   #  disponible en local, l'app démarre quand même (le consumer
-  #  retente la connexion en arrière-plan, ça n'empêche pas le
-  #  démarrage), mais rien ne sera évidemment consommé tant que
-  #  Kafka n'est pas up.
+  #  retente la connexion en arrière-plan), mais rien ne sera
+  #  consommé tant que Kafka n'est pas up.
   # ═══════════════════════════════════════════════════════════
   kafka:
     bootstrap-servers: localhost:9092
@@ -19,14 +18,15 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   # ═══════════════════════════════════════════════════════════
-  #  Mail : non utilisé pour l'instant, EmailNotificationSender est
-  #  un stub qui logue au lieu d'envoyer un vrai email (cf. README).
-  #  Config laissée en placeholder pour brancher un vrai provider
-  #  SMTP plus tard sans tout réécrire.
+  #  Mail - Sprint 5.3 : envoi réel via JavaMailSender.
+  #  Port 1025 = port standard MailHog/Mailpit pour tester en local
+  #  sans vrai provider SMTP (aucune authentification nécessaire
+  #  avec ces outils). En prod, remplacer host/port/username/password
+  #  par un vrai provider (SendGrid, SES, etc.) via variables d'env.
   # ═══════════════════════════════════════════════════════════
   mail:
-    host: localhost
-    port: 1025
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
 
 server:
   port: 8084
@@ -42,13 +42,19 @@ jwt:
   secret: juribook-secret-key-must-be-at-least-256-bits-long-for-hs256
 
 # ═══════════════════════════════════════════════════════════
-#  URL du booking-service, consulté pour résoudre la liste
-#  d'attente d'un avocat (GET /api/waitlist/{lawyerId}) suite à
-#  un événement slot.released.
-#  En conteneur Docker, surchargé par BOOKING_SERVICE_BASE_URL.
+#  URLs des autres microservices, consultés pour enrichir les
+#  événements Kafka reçus (résolution d'ids en données lisibles).
+#  En conteneur Docker, surchargées par les variables d'env
+#  correspondantes.
 # ═══════════════════════════════════════════════════════════
 booking-service:
   base-url: ${BOOKING_SERVICE_BASE_URL:http://localhost:8083}
+
+lawyer-service:
+  base-url: ${LAWYER_SERVICE_BASE_URL:http://localhost:8082}
+
+auth-service:
+  base-url: ${AUTH_SERVICE_BASE_URL:http://localhost:8081}
 
 springdoc:
   api-docs:

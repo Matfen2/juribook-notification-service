@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -33,6 +34,22 @@ public class RestClientBookingServiceClient implements BookingServiceClient {
             log.error("Échec de l'appel au booking-service pour récupérer la liste d'attente (lawyerId={})",
                     lawyerId, e);
             return List.of();
+        }
+    }
+
+    @Override
+    public Optional<BookingDetailsDto> getBookingDetails(Long bookingId) {
+        try {
+            BookingDetailsDto details = restClient.get()
+                    .uri("/api/bookings/{bookingId}", bookingId)
+                    .retrieve()
+                    .body(BookingDetailsDto.class);
+
+            return Optional.ofNullable(details);
+        } catch (RestClientException e) {
+            log.error("Échec de l'appel au booking-service pour récupérer le détail de la réservation (bookingId={})",
+                    bookingId, e);
+            return Optional.empty();
         }
     }
 }
