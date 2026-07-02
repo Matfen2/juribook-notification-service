@@ -4,7 +4,7 @@ spring:
 
   # ═══════════════════════════════════════════════════════════
   #  Kafka : contrairement au booking-service, Kafka N'EST PAS
-  #  exclu ici — c'est la raison d'être de ce service. Sans broker
+  #  exclu ici, c'est la raison d'être de ce service. Sans broker
   #  disponible en local, l'app démarre quand même (le consumer
   #  retente la connexion en arrière-plan, ça n'empêche pas le
   #  démarrage), mais rien ne sera évidemment consommé tant que
@@ -30,6 +30,16 @@ spring:
 
 server:
   port: 8084
+
+# ═══════════════════════════════════════════════════════════
+#  JWT
+#  Même secret que l'auth-service et les autres services métier.
+#  Le notification-service ne génère pas de JWT, il valide
+#  uniquement les tokens émis par l'auth-service (préparé pour un
+#  futur endpoint protégé, aucune route ne l'utilise encore).
+# ═══════════════════════════════════════════════════════════
+jwt:
+  secret: juribook-secret-key-must-be-at-least-256-bits-long-for-hs256
 
 # ═══════════════════════════════════════════════════════════
 #  URL du booking-service, consulté pour résoudre la liste
