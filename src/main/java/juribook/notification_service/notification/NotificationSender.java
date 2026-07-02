@@ -7,9 +7,9 @@ import java.time.LocalTime;
  * Abstraction de l'envoi de notification à un utilisateur.
  *
  * Une seule implémentation : EmailNotificationSender, qui envoie
- * réellement des emails via JavaMailSender depuis le Sprint 5.3 (avant
- * ça, stub qui logguait uniquement). La notification in-app (persistée,
- * consultable via API par le frontend) reste repoussée à un sprint dédié.
+ * réellement des emails via JavaMailSender. La
+ * notification in-app (persistée, consultable via API par le frontend)
+ * reste repoussée à un sprint dédié.
  */
 public interface NotificationSender {
 
@@ -26,5 +26,21 @@ public interface NotificationSender {
         LocalDate date,
         LocalTime startTime,
         LocalTime endTime
+    );
+
+    /**
+     * Email envoyé à l'avocat quand une nouvelle demande de réservation
+     * arrive, encore PENDING. reason est le motif renseigné
+     * par le client, l'info dont l'avocat a besoin pour décider de
+     * confirmer ou refuser.
+     */
+    void sendNewBookingRequestEmail(
+        String toEmail,
+        String lawyerName,
+        String clientName,
+        LocalDate date,
+        LocalTime startTime,
+        LocalTime endTime,
+        String reason
     );
 }

@@ -14,17 +14,15 @@ import java.util.Locale;
 /**
  * Envoi des notifications par email.
  *
- * sendBookingConfirmedEmail envoie un VRAI email via
- * JavaMailSender, autoconfiguré par Spring Boot dès que spring.mail.host
- * est renseigné (cf. application.yaml - localhost:1025 par défaut,
- * port standard MailHog/Mailpit pour tester en local sans vrai
- * provider SMTP). Si aucun serveur SMTP n'écoute sur ce port, l'envoi
- * échoue proprement : l'exception est catchée et logguée, elle ne fait
- * jamais planter le consumer Kafka qui a déclenché l'envoi.
+ * sendBookingConfirmedEmail et sendNewBookingRequestEmail
+ * envoient de VRAIS emails via JavaMailSender, autoconfiguré
+ * par Spring Boot dès que spring.mail.host est renseigné (cf.
+ * application.yaml, MailHog en local). Si aucun serveur SMTP n'écoute,
+ * l'envoi échoue proprement : l'exception est catchée et logguée, elle
+ * ne fait jamais planter le consumer Kafka qui a déclenché l'envoi.
  *
- * sendSlotReleasedNotification reste un stub qui logue
- * pas dans le scope de ce sprint, à faire passer en envoi réel plus tard
- * en suivant exactement le même pattern.
+ * sendSlotReleasedNotification reste un stub qui logue —
+ * à faire passer en envoi réel plus tard en suivant le même pattern.
  */
 @Component
 @Slf4j
@@ -71,16 +69,51 @@ public class EmailNotificationSender implements NotificationSender {
                 endTime.format(TIME_FORMATTER)
         ));
 
+        send(message, "confirmation");
+    }
+
+    @Override
+    public void sendNewBookingRequestEmail(String toEmail, String lawyerName, String clientName,
+                                            LocalDate date, LocalTime startTime, LocalTime endTime,
+                                            String reason) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(FROM_ADDRESS);
+        message.setTo(toEmail);
+        message.setSubject("Nouvelle demande de rendez-vous de " + clientName);
+        message.setText("""
+                Bonjour %s,
+
+                Vous avez reçu une nouvelle demande de rendez-vous de la part de %s.
+
+                Date souhaitée : %s
+                Heure : %s - %s
+                Motif : %s
+
+                Connectez-vous à votre espace JuriBook pour confirmer ou refuser cette demande.
+
+                À bientôt sur JuriBook.
+                """.formatted(
+                lawyerName,
+                clientName,
+                date.format(DATE_FORMATTER),
+                startTime.format(TIME_FORMATTER),
+                endTime.format(TIME_FORMATTER),
+                reason != null && !reason.isBlank() ? reason : "Non renseigné"
+        ));
+
+        send(message, "nouvelle demande");
+    }
+
+    private void send(SimpleMailMessage message, String emailKind) {
         try {
             mailSender.send(message);
-            log.info("Email de confirmation envoyé : to={}, rendez-vous le {} à {}",
-                    toEmail, date, startTime);
+            log.info("Email de {} envoyé : to={}", emailKind, message.getTo() != null ? message.getTo()[0] : "?");
         } catch (MailException e) {
             // Un échec d'envoi (pas de serveur SMTP disponible, adresse
             // invalide, etc.) est loggué mais ne remonte jamais jusqu'au
-            // consumer Kafka appelant, la réservation reste confirmée
-            // côté métier même si l'email n'est pas parti.
-            log.error("Échec de l'envoi de l'email de confirmation à {}", toEmail, e);
+            // consumer Kafka appelant.
+            log.error("Échec de l'envoi de l'email de {} à {}", emailKind,
+                    message.getTo() != null ? message.getTo()[0] : "?", e);
         }
     }
 }

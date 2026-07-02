@@ -3,6 +3,7 @@ package juribook.notification_service.event;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import juribook.notification_service.service.BookingConfirmationNotificationService;
+import juribook.notification_service.service.BookingRequestNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -13,12 +14,12 @@ import org.springframework.stereotype.Component;
  * (booking.created, booking.confirmed, booking.cancelled).
  *
  * Sprint 5.2 : lecture, routage, log, pour tous les types d'événement.
- * Sprint 5.3 : booking.confirmed déclenche en plus l'envoi réel de
- * l'email de confirmation au client (date, heure, nom de l'avocat), via
- * BookingConfirmationNotificationService.
+ * Sprint 5.3 : booking.confirmed → email de confirmation au client.
+ * Sprint 5.4 : booking.created → email de nouvelle demande à l'avocat.
  *
- * booking.created (email à l'avocat) et le second cas de booking.cancelled
- * restent au stade "routage + log", pas dans le scope de ce sprint.
+ * Le second cas de booking.cancelled (avocat/client notifiés de
+ * l'annulation) reste au stade "routage + log", pas dans le scope de
+ * ces sprints.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class BookingEventConsumer {
 
     private final ObjectMapper objectMapper;
     private final BookingConfirmationNotificationService confirmationNotificationService;
+    private final BookingRequestNotificationService requestNotificationService;
 
     @KafkaListener(topics = "booking-events", groupId = "${spring.kafka.consumer.group-id}")
     public void onBookingEvent(String payload) {
@@ -56,7 +58,7 @@ public class BookingEventConsumer {
     private void handleBookingCreated(BookingEvent event) {
         log.info("[ROUTAGE] booking.created -> à notifier : l'avocat (nouvelle demande en attente), bookingId={}, lawyerId={}",
                 event.bookingId(), event.lawyerId());
-        // Envoi d'email réel à l'avocat : Sprint 5.4
+        requestNotificationService.notifyLawyerOfNewRequest(event);
     }
 
     private void handleBookingConfirmed(BookingEvent event) {
