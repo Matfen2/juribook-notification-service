@@ -5,20 +5,13 @@ import java.time.LocalTime;
 
 /**
  * Abstraction de l'envoi de notification à un utilisateur.
- *
- * Une seule implémentation : EmailNotificationSender, qui envoie
- * réellement des emails via JavaMailSender. La
- * notification in-app (persistée, consultable via API par le frontend)
- * reste repoussée à un sprint dédié.
+ * Une seule implémentation : EmailNotificationSender.
  */
 public interface NotificationSender {
 
     void sendSlotReleasedNotification(Long clientId, Long lawyerId, Long slotId);
 
-    /**
-     * Email de confirmation envoyé au client quand l'avocat confirme sa
-     * demande de réservation.
-     */
+    /** Email de confirmation au client quand l'avocat confirme. */
     void sendBookingConfirmedEmail(
         String toEmail,
         String clientName,
@@ -28,12 +21,7 @@ public interface NotificationSender {
         LocalTime endTime
     );
 
-    /**
-     * Email envoyé à l'avocat quand une nouvelle demande de réservation
-     * arrive, encore PENDING. reason est le motif renseigné
-     * par le client, l'info dont l'avocat a besoin pour décider de
-     * confirmer ou refuser.
-     */
+    /** Email à l'avocat pour une nouvelle demande PENDING. */
     void sendNewBookingRequestEmail(
         String toEmail,
         String lawyerName,
@@ -42,5 +30,15 @@ public interface NotificationSender {
         LocalTime startTime,
         LocalTime endTime,
         String reason
+    );
+
+    /** Rappel automatique au client, 24h avant le rendez-vous. */
+    void sendReminderEmail(
+        String toEmail,
+        String clientName,
+        String lawyerName,
+        LocalDate date,
+        LocalTime startTime,
+        LocalTime endTime
     );
 }

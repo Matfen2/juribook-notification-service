@@ -6,37 +6,35 @@ import juribook.notification_service.client.BookingServiceClient;
 import juribook.notification_service.client.LawyerProfileDto;
 import juribook.notification_service.client.LawyerServiceClient;
 import juribook.notification_service.client.UserContactDto;
+import juribook.notification_service.entity.NotificationType;
 import juribook.notification_service.event.BookingEvent;
 import juribook.notification_service.notification.NotificationSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Orchestration de l'email de confirmation client.
- *
- * L'événement booking.confirmed ne transporte que des ids (bookingId,
- * clientId, lawyerId, timeSlotId), trois appels inter-services sont
- * nécessaires pour composer un email lisible :
- *   1. booking-service : date/heure du créneau (BookingServiceClient)
- *   2. lawyer-service   : nom de l'avocat (LawyerServiceClient)
- *   3. auth-service      : nom + email du client (AuthServiceClient)
- *
- * Si l'un des trois échoue, l'email n'est pas envoyé mais le traitement
- * de l'événement Kafka ne plante pas pour autant (chaque client HTTP est
- * déjà défensif individuellement, cf. leurs implémentations).
+ * Orchestration de la confirmation client. Un seul appel réussi aux 3 services externes,
+ * deux canaux déclenchés à partir du même résultat.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BookingConfirmationNotificationService {
 
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH);
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+
     private final BookingServiceClient bookingServiceClient;
     private final LawyerServiceClient lawyerServiceClient;
     private final AuthServiceClient authServiceClient;
     private final NotificationSender notificationSender;
+    private final NotificationService notificationService;
 
     public void notifyClientOfConfirmation(BookingEvent event) {
         Optional<BookingDetailsDto> details = bookingServiceClient.getBookingDetails(event.bookingId());
@@ -61,13 +59,17 @@ public class BookingConfirmationNotificationService {
         }
 
         BookingDetailsDto d = details.get();
+
         notificationSender.sendBookingConfirmedEmail(
-                client.get().email(),
-                client.get().name(),
-                lawyer.get().name(),
-                d.date(),
-                d.startTime(),
-                d.endTime()
+                client.get().email(), client.get().name(), lawyer.get().name(),
+                d.date(), d.startTime(), d.endTime()
         );
+
+        // Même déclencheur, notification in-app en plus de
+        // l'email, le client verra le badge se mettre à jour sans recharger.
+        String message = "Votre rendez-vous avec %s est confirmé pour le %s à %s".formatted(
+                lawyer.get().name(), d.date().format(DATE_FORMATTER), d.startTime().format(TIME_FORMATTER));
+        notificationService.createNotification(
+                event.clientId(), NotificationType.BOOKING_CONFIRMED, message, event.bookingId());
     }
 }

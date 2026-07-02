@@ -3,6 +3,28 @@ spring:
     name: notification-service
 
   # ═══════════════════════════════════════════════════════════
+  #  Persistence, jamais utilisé jusqu'ici. Le service se
+  #  connectait déjà à PostgreSQL mais sans JPA/Flyway configurés (pas
+  #  de table métier avant la table notifications).
+  #  Port 5435 en local, voir docker-compose.yml (postgres-notification)
+  #  En conteneur Docker, surchargé par SPRING_DATASOURCE_URL
+  # ═══════════════════════════════════════════════════════════
+  datasource:
+    url: jdbc:postgresql://localhost:5435/notificationdb
+    username: juribook
+    password: juribook
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════
   #  Kafka : contrairement au booking-service, Kafka N'EST PAS
   #  exclu ici, c'est la raison d'être de ce service. Sans broker
   #  disponible en local, l'app démarre quand même (le consumer
@@ -18,11 +40,8 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   # ═══════════════════════════════════════════════════════════
-  #  Mail - Sprint 5.3 : envoi réel via JavaMailSender.
-  #  Port 1025 = port standard MailHog/Mailpit pour tester en local
-  #  sans vrai provider SMTP (aucune authentification nécessaire
-  #  avec ces outils). En prod, remplacer host/port/username/password
-  #  par un vrai provider (SendGrid, SES, etc.) via variables d'env.
+  #  Mail - envoi réel via JavaMailSender.
+  #  Port 1025 = port standard MailHog/Mailpit pour tester en local.
   # ═══════════════════════════════════════════════════════════
   mail:
     host: ${MAIL_HOST:localhost}
@@ -35,8 +54,7 @@ server:
 #  JWT
 #  Même secret que l'auth-service et les autres services métier.
 #  Le notification-service ne génère pas de JWT, il valide
-#  uniquement les tokens émis par l'auth-service (préparé pour un
-#  futur endpoint protégé, aucune route ne l'utilise encore).
+#  uniquement les tokens émis par l'auth-service.
 # ═══════════════════════════════════════════════════════════
 jwt:
   secret: juribook-secret-key-must-be-at-least-256-bits-long-for-hs256

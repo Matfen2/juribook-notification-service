@@ -11,19 +11,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-/**
- * Envoi des notifications par email.
- *
- * sendBookingConfirmedEmail et sendNewBookingRequestEmail
- * envoient de VRAIS emails via JavaMailSender, autoconfiguré
- * par Spring Boot dès que spring.mail.host est renseigné (cf.
- * application.yaml, MailHog en local). Si aucun serveur SMTP n'écoute,
- * l'envoi échoue proprement : l'exception est catchée et logguée, elle
- * ne fait jamais planter le consumer Kafka qui a déclenché l'envoi.
- *
- * sendSlotReleasedNotification reste un stub qui logue —
- * à faire passer en envoi réel plus tard en suivant le même pattern.
- */
 @Component
 @Slf4j
 public class EmailNotificationSender implements NotificationSender {
@@ -62,11 +49,8 @@ public class EmailNotificationSender implements NotificationSender {
 
                 À bientôt sur JuriBook.
                 """.formatted(
-                clientName,
-                lawyerName,
-                date.format(DATE_FORMATTER),
-                startTime.format(TIME_FORMATTER),
-                endTime.format(TIME_FORMATTER)
+                clientName, lawyerName,
+                date.format(DATE_FORMATTER), startTime.format(TIME_FORMATTER), endTime.format(TIME_FORMATTER)
         ));
 
         send(message, "confirmation");
@@ -93,15 +77,36 @@ public class EmailNotificationSender implements NotificationSender {
 
                 À bientôt sur JuriBook.
                 """.formatted(
-                lawyerName,
-                clientName,
-                date.format(DATE_FORMATTER),
-                startTime.format(TIME_FORMATTER),
-                endTime.format(TIME_FORMATTER),
+                lawyerName, clientName,
+                date.format(DATE_FORMATTER), startTime.format(TIME_FORMATTER), endTime.format(TIME_FORMATTER),
                 reason != null && !reason.isBlank() ? reason : "Non renseigné"
         ));
 
         send(message, "nouvelle demande");
+    }
+
+    @Override
+    public void sendReminderEmail(String toEmail, String clientName, String lawyerName,
+                                   LocalDate date, LocalTime startTime, LocalTime endTime) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(FROM_ADDRESS);
+        message.setTo(toEmail);
+        message.setSubject("Rappel : votre rendez-vous avec " + lawyerName + " demain");
+        message.setText("""
+                Bonjour %s,
+
+                Petit rappel : votre rendez-vous avec %s a lieu demain.
+
+                Date : %s
+                Heure : %s - %s
+
+                À bientôt sur JuriBook.
+                """.formatted(
+                clientName, lawyerName,
+                date.format(DATE_FORMATTER), startTime.format(TIME_FORMATTER), endTime.format(TIME_FORMATTER)
+        ));
+
+        send(message, "rappel 24h");
     }
 
     private void send(SimpleMailMessage message, String emailKind) {
@@ -109,9 +114,6 @@ public class EmailNotificationSender implements NotificationSender {
             mailSender.send(message);
             log.info("Email de {} envoyé : to={}", emailKind, message.getTo() != null ? message.getTo()[0] : "?");
         } catch (MailException e) {
-            // Un échec d'envoi (pas de serveur SMTP disponible, adresse
-            // invalide, etc.) est loggué mais ne remonte jamais jusqu'au
-            // consumer Kafka appelant.
             log.error("Échec de l'envoi de l'email de {} à {}", emailKind,
                     message.getTo() != null ? message.getTo()[0] : "?", e);
         }

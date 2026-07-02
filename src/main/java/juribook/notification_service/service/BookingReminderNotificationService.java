@@ -17,20 +17,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Orchestration de la nouvelle demande côté avocat.
- *
- * ⚠️ Le destinataire de la notification in-app est lawyer.authUserId(),
- * PAS event.lawyerId(), le lawyerId est l'id de l'entité Lawyer côté
- * lawyer-service, alors que la notification doit être rattachée à
- * l'authUserId (celui du JWT que l'avocat présente au frontend pour
- * consulter ses notifications). Même distinction déjà nécessaire pour
- * résoudre l'email de l'avocat.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BookingRequestNotificationService {
+public class BookingReminderNotificationService {
 
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH);
@@ -42,47 +32,38 @@ public class BookingRequestNotificationService {
     private final NotificationSender notificationSender;
     private final NotificationService notificationService;
 
-    public void notifyLawyerOfNewRequest(BookingEvent event) {
+    public void notifyClientOfReminder(BookingEvent event) {
         Optional<BookingDetailsDto> details = bookingServiceClient.getBookingDetails(event.bookingId());
         if (details.isEmpty() || details.get().date() == null || details.get().startTime() == null) {
-            log.warn("Détail de créneau introuvable pour bookingId={}, email de nouvelle demande non envoyé",
-                    event.bookingId());
+            log.warn("Détail de créneau introuvable pour bookingId={}, rappel non envoyé", event.bookingId());
             return;
         }
 
         Optional<LawyerProfileDto> lawyer = lawyerServiceClient.getLawyer(event.lawyerId());
-        if (lawyer.isEmpty() || lawyer.get().authUserId() == null) {
-            log.warn("Avocat introuvable ou authUserId manquant (lawyerId={}) pour bookingId={}, email non envoyé",
+        if (lawyer.isEmpty()) {
+            log.warn("Avocat introuvable (lawyerId={}) pour bookingId={}, rappel non envoyé",
                     event.lawyerId(), event.bookingId());
-            return;
-        }
-
-        Optional<UserContactDto> lawyerContact = authServiceClient.getContact(lawyer.get().authUserId());
-        if (lawyerContact.isEmpty()) {
-            log.warn("Contact avocat introuvable (authUserId={}) pour bookingId={}, email non envoyé",
-                    lawyer.get().authUserId(), event.bookingId());
             return;
         }
 
         Optional<UserContactDto> client = authServiceClient.getContact(event.clientId());
         if (client.isEmpty()) {
-            log.warn("Client introuvable (clientId={}) pour bookingId={}, email non envoyé",
+            log.warn("Client introuvable (clientId={}) pour bookingId={}, rappel non envoyé",
                     event.clientId(), event.bookingId());
             return;
         }
 
         BookingDetailsDto d = details.get();
 
-        notificationSender.sendNewBookingRequestEmail(
-                lawyerContact.get().email(), lawyer.get().name(), client.get().name(),
-                d.date(), d.startTime(), d.endTime(), d.reason()
+        notificationSender.sendReminderEmail(
+                client.get().email(), client.get().name(), lawyer.get().name(),
+                d.date(), d.startTime(), d.endTime()
         );
 
-        // Notification in-app pour l'avocat, rattachée à son
-        // authUserId (pas son lawyerId).
-        String message = "Nouvelle demande de %s pour le %s à %s".formatted(
-                client.get().name(), d.date().format(DATE_FORMATTER), d.startTime().format(TIME_FORMATTER));
+        // Sprint 5.6 : notification in-app.
+        String message = "Rappel : rendez-vous avec %s demain le %s à %s".formatted(
+                lawyer.get().name(), d.date().format(DATE_FORMATTER), d.startTime().format(TIME_FORMATTER));
         notificationService.createNotification(
-                lawyer.get().authUserId(), NotificationType.BOOKING_CREATED, message, event.bookingId());
+                event.clientId(), NotificationType.BOOKING_REMINDER, message, event.bookingId());
     }
 }
