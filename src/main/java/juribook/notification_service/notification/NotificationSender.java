@@ -41,4 +41,20 @@ public interface NotificationSender {
         LocalTime startTime,
         LocalTime endTime
     );
+
+    /**
+     * Email au client quand sa réservation est annulée,
+     * refus par l'avocat, annulation manuelle, ou désactivation de
+     * l'avocat pour une demande encore PENDING. date/startTime/endTime
+     * peuvent être null (créneau introuvable) : le corps de l'email
+     * s'adapte, cf. EmailNotificationSender.
+     */
+    void sendCancellationEmail(
+        String toEmail,
+        String clientName,
+        String lawyerName,
+        LocalDate date,
+        LocalTime startTime,
+        LocalTime endTime
+    );
 }

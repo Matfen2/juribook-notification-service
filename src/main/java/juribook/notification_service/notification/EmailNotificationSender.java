@@ -109,6 +109,36 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "rappel 24h");
     }
 
+    @Override
+    public void sendCancellationEmail(String toEmail, String clientName, String lawyerName,
+                                       LocalDate date, LocalTime startTime, LocalTime endTime) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(FROM_ADDRESS);
+        message.setTo(toEmail);
+        message.setSubject("Votre rendez-vous avec " + lawyerName + " a été annulé");
+
+        // date/startTime/endTime peuvent être null (créneau introuvable,
+        // ex: cas limite où le TimeSlot aurait été supprimé), le corps
+        // s'adapte plutôt que de planter sur un format(null).
+        String scheduleLine = (date != null && startTime != null && endTime != null)
+                ? "Il était prévu le %s de %s à %s.".formatted(
+                    date.format(DATE_FORMATTER), startTime.format(TIME_FORMATTER), endTime.format(TIME_FORMATTER))
+                : "";
+
+        message.setText("""
+                Bonjour %s,
+
+                Votre rendez-vous avec %s a été annulé.
+                %s
+
+                N'hésitez pas à consulter les disponibilités de cet avocat, ou d'un autre, sur JuriBook.
+
+                À bientôt sur JuriBook.
+                """.formatted(clientName, lawyerName, scheduleLine));
+
+        send(message, "annulation");
+    }
+
     private void send(SimpleMailMessage message, String emailKind) {
         try {
             mailSender.send(message);
