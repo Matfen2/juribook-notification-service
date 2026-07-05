@@ -22,16 +22,19 @@ public class EmailNotificationSender implements NotificationSender {
 
     private final JavaMailSender mailSender;
 
+    // Injection du JavaMailSender via le constructeur (Spring Boot auto-configure un bean JavaMailSender si les propriétés mail sont définies).
     public EmailNotificationSender(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
+    // Email au client quand un créneau qu'il attendait est libéré par un autre client.
     @Override
     public void sendSlotReleasedNotification(Long clientId, Long lawyerId, Long slotId) {
         log.info("[EMAIL STUB] Notification créneau libéré → clientId={}, lawyerId={}, slotId={}. "
                 + "Un email serait envoyé ici en production.", clientId, lawyerId, slotId);
     }
 
+    // Email au client quand sa réservation a été confirmée par l'avocat.
     @Override
     public void sendBookingConfirmedEmail(String toEmail, String clientName, String lawyerName,
                                            LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -56,6 +59,7 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "confirmation");
     }
 
+    // Email à l'avocat quand un client lui envoie une demande de réservation.
     @Override
     public void sendNewBookingRequestEmail(String toEmail, String lawyerName, String clientName,
                                             LocalDate date, LocalTime startTime, LocalTime endTime,
@@ -85,6 +89,7 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "nouvelle demande");
     }
 
+    // Email au client quand sa réservation est annulée par l'avocat.
     @Override
     public void sendReminderEmail(String toEmail, String clientName, String lawyerName,
                                    LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -109,6 +114,7 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "rappel 24h");
     }
 
+    // Email au client quand sa réservation est annulée par l'avocat.
     @Override
     public void sendCancellationEmail(String toEmail, String clientName, String lawyerName,
                                        LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -117,9 +123,6 @@ public class EmailNotificationSender implements NotificationSender {
         message.setTo(toEmail);
         message.setSubject("Votre rendez-vous avec " + lawyerName + " a été annulé");
 
-        // date/startTime/endTime peuvent être null (créneau introuvable,
-        // ex: cas limite où le TimeSlot aurait été supprimé), le corps
-        // s'adapte plutôt que de planter sur un format(null).
         String scheduleLine = (date != null && startTime != null && endTime != null)
                 ? "Il était prévu le %s de %s à %s.".formatted(
                     date.format(DATE_FORMATTER), startTime.format(TIME_FORMATTER), endTime.format(TIME_FORMATTER))
@@ -139,6 +142,26 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "annulation");
     }
 
+    // Email au client quand son document uploadé a été traité.
+    @Override
+    public void sendDocumentReadyEmail(String toEmail, String clientName, String lawyerName, String filename) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(FROM_ADDRESS);
+        message.setTo(toEmail);
+        message.setSubject("Votre document a bien été reçu");
+        message.setText("""
+                Bonjour %s,
+
+                Le document que vous avez envoyé à %s a bien été reçu et traité :
+                « %s »
+
+                À bientôt sur JuriBook.
+                """.formatted(clientName, lawyerName, filename));
+
+        send(message, "document prêt");
+    }
+
+    // Méthode utilitaire pour envoyer un email et gérer les exceptions.
     private void send(SimpleMailMessage message, String emailKind) {
         try {
             mailSender.send(message);
