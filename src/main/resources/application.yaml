@@ -83,3 +83,11 @@ springdoc:
     operations-sorter: alpha
     display-request-duration: true
   show-actuator: false
+
+# ══════════════════════════════════════════════════════════
+#  Paramètres spécifiques à l'application (non Spring Boot)
+#  L'email de l'administrateur est utilisé pour les alertes d'abus
+#  détecté par le service. Il est surchargé par la variable d'env ADMIN_EMAIL.
+# ══════════════════════════════════════════════════════════
+app:
+  admin-email: ${ADMIN_EMAIL:admin@juribook.fr}

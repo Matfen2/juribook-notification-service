@@ -7,6 +7,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -22,19 +23,16 @@ public class EmailNotificationSender implements NotificationSender {
 
     private final JavaMailSender mailSender;
 
-    // Injection du JavaMailSender via le constructeur (Spring Boot auto-configure un bean JavaMailSender si les propriétés mail sont définies).
     public EmailNotificationSender(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
-    // Email au client quand un créneau qu'il attendait est libéré par un autre client.
     @Override
     public void sendSlotReleasedNotification(Long clientId, Long lawyerId, Long slotId) {
         log.info("[EMAIL STUB] Notification créneau libéré → clientId={}, lawyerId={}, slotId={}. "
                 + "Un email serait envoyé ici en production.", clientId, lawyerId, slotId);
     }
 
-    // Email au client quand sa réservation a été confirmée par l'avocat.
     @Override
     public void sendBookingConfirmedEmail(String toEmail, String clientName, String lawyerName,
                                            LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -59,7 +57,6 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "confirmation");
     }
 
-    // Email à l'avocat quand un client lui envoie une demande de réservation.
     @Override
     public void sendNewBookingRequestEmail(String toEmail, String lawyerName, String clientName,
                                             LocalDate date, LocalTime startTime, LocalTime endTime,
@@ -89,7 +86,6 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "nouvelle demande");
     }
 
-    // Email au client quand sa réservation est annulée par l'avocat.
     @Override
     public void sendReminderEmail(String toEmail, String clientName, String lawyerName,
                                    LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -114,7 +110,6 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "rappel 24h");
     }
 
-    // Email au client quand sa réservation est annulée par l'avocat.
     @Override
     public void sendCancellationEmail(String toEmail, String clientName, String lawyerName,
                                        LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -142,7 +137,6 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "annulation");
     }
 
-    // Email au client quand son document uploadé a été traité.
     @Override
     public void sendDocumentReadyEmail(String toEmail, String clientName, String lawyerName, String filename) {
         SimpleMailMessage message = new SimpleMailMessage();
@@ -161,7 +155,28 @@ public class EmailNotificationSender implements NotificationSender {
         send(message, "document prêt");
     }
 
-    // Méthode utilitaire pour envoyer un email et gérer les exceptions.
+    @Override
+    public void sendAbuseAlertEmail(String adminEmail, Long actorId, String reason,
+                                     long signalCount, LocalDateTime occurredAt) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(FROM_ADDRESS);
+        message.setTo(adminEmail);
+        message.setSubject("[JuriBook] Abus détecté - compte #" + actorId);
+        message.setText("""
+                Un compte a dépassé un seuil de détection d'abus et a été suspendu automatiquement.
+
+                Compte concerné : #%d
+                Motif : %s
+                Nombre de signaux dans la fenêtre : %d
+                Détecté le : %s
+
+                Consultez le journal d'audit pour le détail complet des événements
+                ayant mené à cette détection.
+                """.formatted(actorId, reason, signalCount, occurredAt));
+
+        send(message, "alerte abus admin");
+    }
+
     private void send(SimpleMailMessage message, String emailKind) {
         try {
             mailSender.send(message);
